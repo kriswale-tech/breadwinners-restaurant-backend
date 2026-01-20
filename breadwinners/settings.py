@@ -40,6 +40,7 @@ INSTALLED_APPS = [
 
     # third party apps
     'rest_framework',
+    'rest_framework_simplejwt',
 
     # local apps
     'accounts',
@@ -129,3 +130,12 @@ STATIC_URL = 'static/'
 
 # Custom User Model
 AUTH_USER_MODEL = 'accounts.User'
+
+# REST framework
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ],
+}
+

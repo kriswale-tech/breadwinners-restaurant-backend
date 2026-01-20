@@ -101,11 +101,9 @@ class SoftDeleteUserModel(SoftDeleteModel):
         if getattr(self, "pk", None) is not None:
             if hasattr(self, "email"):
                 self.email = f"deleted+{self.pk}@example.invalid"
-            if hasattr(self, "username"):
-                self.username = f"deleted_{self.pk}"
 
         update_fields = ["is_deleted", "deleted_at"]
-        for field in ("updated_at", "is_active", "first_name", "last_name", "email", "username", "password"):
+        for field in ("updated_at", "is_active", "first_name", "last_name", "email", "password"):
             if hasattr(self, field):
                 update_fields.append(field)
 
