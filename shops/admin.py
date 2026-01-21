@@ -1,3 +1,10 @@
 from django.contrib import admin
+from utils.admin import TimestampedAdminMixin
 
-# Register your models here.
+from .models import Shop
+
+
+@admin.register(Shop)
+class ShopAdmin(TimestampedAdminMixin, admin.ModelAdmin):
+    list_display = ("id", "name", "description")
+    search_fields = ("name", "description")

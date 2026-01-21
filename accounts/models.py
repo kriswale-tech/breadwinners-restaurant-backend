@@ -1,5 +1,6 @@
 from django.db import models
-from utils.models import TimeStampedSoftDeleteModel, SoftDeleteUserModel
+from utils.models import TimeStampedSoftDeleteModel
+from .managers import SoftDeleteUserModel
 from django.contrib.auth.models import AbstractUser
 from django.utils.translation import gettext_lazy as _
 
