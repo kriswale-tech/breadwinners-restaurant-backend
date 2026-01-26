@@ -10,10 +10,9 @@ from django.conf import settings
 class User(SoftDeleteUserModel, AbstractUser):
     username = None
     email = models.EmailField(_('email address'), unique=True)
-    phone_number = models.CharField(max_length=20, blank=True, null=True)
 
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['first_name', 'last_name', 'phone_number']
+    REQUIRED_FIELDS = ['first_name', 'last_name']
 
     class Meta:
         swappable = 'AUTH_USER_MODEL'
@@ -21,24 +20,19 @@ class User(SoftDeleteUserModel, AbstractUser):
     def __str__(self):
         return self.email
 
-# Role model
-class Role(models.Model):
-    class RoleChoices(models.TextChoices):
-        ADMIN = 'admin', 'Admin'
-        STAFF = 'staff', 'Staff'
-
-    name = models.CharField(max_length=255, choices=RoleChoices.choices)
-    description = models.TextField(blank=True, null=True)
-
-    def __str__(self):
-        return self.name
-
-
 # Profile model
 class Profile(TimeStampedSoftDeleteModel):
+    class RoleChoices(models.TextChoices):
+        ADMIN = 'admin', _('Admin')
+        STAFF = 'staff', 'Staff'
+
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    role = models.ForeignKey(Role, on_delete=models.PROTECT) # Prevent role from being deleted if associated with a profile
+    role = models.CharField(max_length=255, choices=RoleChoices.choices)
+    avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
+    address = models.TextField(blank=True, null=True)
+    phone_number = models.CharField(max_length=20)
+    bio = models.TextField(blank=True, null=True)
 
     def __str__(self):
-        return f"{self.user.get_full_name()} - {self.role.name}"
+        return f"{self.user.get_full_name()} - {self.get_role_display()}"
 
