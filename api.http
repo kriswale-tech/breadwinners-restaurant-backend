@@ -1,12 +1,42 @@
-POST http://localhost:8000/api/v1/auth/login/
+### Setup
+@base_url = http://localhost:8000/api/v1
+
+### Login
+# @name login
+POST {{base_url}}/auth/login/
 Content-Type: application/json
 
 {
     "email": "camoakohene84@gmail.com",
     "password": "kriswale"
 }
+### Get Access Token
+@access_token = {{login.response.body.access}}
 
 ### Create User
-GET http://localhost:8000/api/v1/users/
+GET {{base_url}}/users/
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzY5NDEzMTYxLCJpYXQiOjE3Njk0MTI4NjEsImp0aSI6ImZmMjNmYWQ0NjI5YzQ1MWM4NjA2OGNhOGU4ZmM1NWIzIiwidXNlcl9pZCI6IjEifQ.f0b4-s1vWqf4xMcp_7ogoLpEOuqckqOKC4bSjM9Y9Vg
+Authorization: Bearer {{access_token}}
+
+### Create Product
+PUT  {{base_url}}/product-categories/1/
+Content-Type: application/json
+
+{
+    "name": "Product Category 1",
+    "description": "Product Category 1 description",
+}
+
+### Create Production Batch
+POST {{base_url}}/production-batches/
+Content-Type: application/json
+Authorization: Bearer {{access_token}}
+
+{
+  "shop": 1,
+  "product": 3,
+  "quantity_produced": 120,
+  "ingredients": [
+    { "ingredient": 1, "quantity_used": 1 }
+  ]
+}
