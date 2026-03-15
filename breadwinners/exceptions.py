@@ -5,7 +5,7 @@ from rest_framework.response import Response
 def custom_exception_handler(exc, context):
     response = exception_handler(exc, context)
 
-    print(response.data)
+    print("CUSTOM EXCEPTION HANDLER CALLED")
 
     if response is None:
         return response

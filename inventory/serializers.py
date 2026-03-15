@@ -12,8 +12,8 @@ class IngredientInventorySerializer(serializers.ModelSerializer):
 
 class IngredientSerializer(serializers.ModelSerializer):
     inventory_id = serializers.IntegerField(source='inventory.id', read_only=True)
-    quantity = serializers.DecimalField(max_digits=10, decimal_places=2, required=True)
-    shop_id = serializers.IntegerField(source='shop.id', required=False)
+    quantity = serializers.DecimalField(max_digits=10, decimal_places=2, required=True, source='inventory.quantity')
+    shop_id = serializers.IntegerField(required=False, source='shop.id')
     shop_name = serializers.CharField(source='shop.name', read_only=True)
 
     class Meta:
@@ -27,13 +27,16 @@ class IngredientSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         # get shop_id from attrs
-        shop_id = attrs.get('shop_id')
-        # if shop_id is not provided, raise an error
+        shop_id = attrs.pop('shop')['id']
+        quantity = attrs.pop('inventory')['quantity']
         if not shop_id:
             raise serializers.ValidationError("Shop is required")
+        if not quantity:
+            raise serializers.ValidationError("Quantity is required")
 
+        attrs['shop_id'] = shop_id
+        attrs['quantity'] = quantity
         return attrs
-
 
     def create(self, validated_data):
         quantity = validated_data.pop('quantity', None)

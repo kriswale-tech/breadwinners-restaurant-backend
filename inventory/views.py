@@ -35,7 +35,8 @@ class IngredientView(APIView):
         data = request.data.copy()
         data['shop_id'] = shop_id
         serializer = IngredientSerializer(data=data)
-        if serializer.is_valid():
+        print(serializer.initial_data)
+        if serializer.is_valid(raise_exception=True):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -45,12 +46,12 @@ class IngredientView(APIView):
         data['shop_id'] = shop_id
         ingredient = get_object_or_404(self.get_queryset(), pk=ingredient_id)
         serializer = IngredientSerializer(ingredient, data=data)
-        if serializer.is_valid():
+        if serializer.is_valid(raise_exception=True):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    def delete(self, request, ingredient_id):
+    def delete(self, request, shop_id, ingredient_id):
         ingredient = get_object_or_404(self.get_queryset(), pk=ingredient_id)
         ingredient.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
