@@ -25,7 +25,12 @@ SECRET_KEY = 'django-insecure-#-x##v#ej)v1@rhbpr=*^4!_307pbk-nuz2y8oup^rs$3vq=)=
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+
+# CSRF settings
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3002", "http://127.0.0.1:3002"
+]
 
 
 # Application definition
@@ -41,6 +46,7 @@ INSTALLED_APPS = [
     # third party apps
     'rest_framework',
     'rest_framework_simplejwt',
+    'corsheaders',
 
     # local apps
     'accounts',
@@ -52,6 +58,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -60,6 +67,14 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# CORS settings
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:3002',
+    'http://localhost:3000',
+]
+CORS_ALLOW_CREDENTIALS = True
+
 
 ROOT_URLCONF = 'breadwinners.urls'
 
@@ -134,11 +149,22 @@ AUTH_USER_MODEL = 'accounts.User'
 # REST framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.SessionAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
+    'EXCEPTION_HANDLER': 'breadwinners.exceptions.custom_exception_handler',
+}
+
+# Simple JWT settings
+SIMPLE_JWT = {
+    "UPDATE_LAST_LOGIN": True
 }
 
 # Media files
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+FRONTEND_BASE_URL = 'http://localhost:3002'
+FRONTEND_SETUP_URL = FRONTEND_BASE_URL + '/admin/auth/setup'
+
+# this controls the timeout for the password reset token
+PASSWORD_RESET_TIMEOUT = 7 * 24 * 60 * 60  # 7 days

@@ -1,32 +1,67 @@
 from rest_framework import serializers
 from .models import Ingredient, IngredientInventory, ProductionBatch, ProductionBatchIngredient
 from django.db import transaction
+from shops.models import Shop
 
 
 class IngredientInventorySerializer(serializers.ModelSerializer):
     class Meta:
         model = IngredientInventory
-        fields = ["quantity", "updated_at"]
+        fields = ["quantity", "updated_at", "id"]
 
 
 class IngredientSerializer(serializers.ModelSerializer):
-    inventory = IngredientInventorySerializer(read_only=True)
-    quantity = serializers.DecimalField(max_digits=10, decimal_places=2, write_only=True, allow_null=True, required=False)
+    inventory_id = serializers.IntegerField(source='inventory.id', read_only=True)
+    quantity = serializers.DecimalField(max_digits=10, decimal_places=2, required=True)
+    shop_id = serializers.IntegerField(source='shop.id', required=False)
+    shop_name = serializers.CharField(source='shop.name', read_only=True)
 
     class Meta:
         model = Ingredient
-        fields = ['shop', 'name', 'unit', 'inventory', 'quantity']
+        fields = ['id', 'name', 'unit', 'inventory_id', 'quantity', 'shop_id', 'shop_name']
+
+    def validate_quantity(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Quantity must be greater than 0")
+        return value
+
+    def validate(self, attrs):
+        # get shop_id from attrs
+        shop_id = attrs.get('shop_id')
+        # if shop_id is not provided, raise an error
+        if not shop_id:
+            raise serializers.ValidationError("Shop is required")
+
+        return attrs
+
 
     def create(self, validated_data):
         quantity = validated_data.pop('quantity', None)
-        ingredient = Ingredient.objects.create(**validated_data)
+        shop_id = validated_data.pop('shop_id', None)
 
-        if quantity:
-            IngredientInventory.objects.create(ingredient=ingredient, quantity=quantity)
+        # get shop
+        shop = Shop.objects.get(id=shop_id)
+        if not shop:
+            raise serializers.ValidationError("Shop does not exist")
+
+        # create ingredient
+        ingredient = Ingredient.objects.create(shop=shop, **validated_data)
+
+        # create ingredient inventory
+    
+        IngredientInventory.objects.create(ingredient=ingredient, quantity=quantity)
         return ingredient
 
     def update(self, instance, validated_data):
         quantity = validated_data.pop("quantity", None)
+        shop_id = validated_data.pop("shop_id", None)
+
+        try:
+            shop = Shop.objects.get(id=shop_id)
+        except Shop.DoesNotExist:
+            raise serializers.ValidationError("Shop does not exist")
+
+        instance.shop = shop
 
         # update Ingredient fields too (PUT expects full update)
         for attr, value in validated_data.items():
@@ -62,7 +97,7 @@ class ProductionBatchReadSerializer(serializers.ModelSerializer):
     
     def get_produced_by_name(self, obj):
         if obj.produced_by:
-            return obj.produced_by.get_full_name() or obj.produced_by.email
+            return obj.produced_by.get_full_name() or obj.produced_by.phone_number
         return None
 
 

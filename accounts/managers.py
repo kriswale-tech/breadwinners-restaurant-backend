@@ -4,22 +4,44 @@ from utils.models import SoftDeleteModel
 from django.utils import timezone
 
 class EmailUserManager(BaseUserManager):
+    """
+    Base manager for the custom User model.
+
+    Despite the name (kept for migration compatibility), this manager now
+    treats `phone_number` as the primary identifier, matching USERNAME_FIELD.
+    """
+
     use_in_migrations = True
 
-    def create_user(self, email, password=None, **extra_fields):
-        if not email:
-            raise ValueError("Email is required")
-        email = self.normalize_email(email)
-        user = self.model(email=email, **extra_fields)
-        user.set_password(password)
+    def create_user(self, phone_number, password=None, **extra_fields):
+        """
+        Create and save a regular user with the given phone number and password.
+        """
+        if not phone_number:
+            raise ValueError("Phone number is required")
+
+        user = self.model(phone_number=phone_number, **extra_fields)
+        if password:
+            user.set_password(password)
+        else:
+            user.set_unusable_password()
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, email, password=None, **extra_fields):
+    def create_superuser(self, phone_number, password=None, **extra_fields):
+        """
+        Create and save a superuser with the given phone number and password.
+        """
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
         extra_fields.setdefault("is_active", True)
-        return self.create_user(email, password, **extra_fields)
+
+        if extra_fields.get("is_staff") is not True:
+            raise ValueError("Superuser must have is_staff=True.")
+        if extra_fields.get("is_superuser") is not True:
+            raise ValueError("Superuser must have is_superuser=True.")
+
+        return self.create_user(phone_number, password, **extra_fields)
 
 class SoftDeleteEmailUserManager(EmailUserManager):
     def get_queryset(self):
@@ -70,11 +92,12 @@ class SoftDeleteUserModel(SoftDeleteModel):
         # Anonymize identifiers to free them for reuse.
         # PK-based values are unique and idempotent.
         if getattr(self, "pk", None) is not None:
-            if hasattr(self, "email"):
-                self.email = f"deleted+{self.pk}@example.invalid"
+            if hasattr(self, "phone_number") and getattr(self, "phone_number"):
+                # Use a non-phone sentinel that still satisfies uniqueness.
+                self.phone_number = f"deleted+{self.pk}"
 
         update_fields = ["is_deleted", "deleted_at"]
-        for field in ("updated_at", "is_active", "first_name", "last_name", "email", "password"):
+        for field in ("updated_at", "is_active", "first_name", "last_name", "phone_number", "password"):
             if hasattr(self, field):
                 update_fields.append(field)
 

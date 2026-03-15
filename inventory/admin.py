@@ -43,7 +43,7 @@ class ProductionBatchAdmin(TimestampedAdminMixin, admin.ModelAdmin):
     list_display = ("id", "shop", "product", "quantity_produced", "produced_by")
     list_select_related = ("shop", "product", "produced_by")
     autocomplete_fields = ["shop", "product", "produced_by"]
-    search_fields = ("shop__name", "product__name", "produced_by__email")
+    search_fields = ("shop__name", "product__name", "produced_by__phone_number")
     inlines = [ProductionBatchIngredientInline]
 
 

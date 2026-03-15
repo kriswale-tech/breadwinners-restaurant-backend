@@ -11,19 +11,15 @@ class ProfileInline(admin.StackedInline):
     model = Profile
     extra = 0
     can_delete = False
-    fields = ("role", "phone_number", "avatar", "address", "bio")
+    fields = ("role", "shop", "avatar", "address", "bio")
 
 
 @admin.register(User)
 class UserAdmin(SoftDeleteAdminMixin, DjangoUserAdmin):
-    """
-    Custom user admin for email-based auth (no username field).
-    """
-
-    ordering = ("email",)
+    ordering = ("phone_number",)
     list_display = (
         "id",
-        "email",
+        "phone_number",
         "first_name",
         "last_name",
         "is_staff",
@@ -31,11 +27,11 @@ class UserAdmin(SoftDeleteAdminMixin, DjangoUserAdmin):
         "is_active",
     )
     list_filter = ("is_staff", "is_superuser", "is_active")
-    search_fields = ("email", "first_name", "last_name")
+    search_fields = ("phone_number", "first_name", "last_name")
     inlines = [ProfileInline]
 
     fieldsets = (
-        (None, {"fields": ("email", "password")}),
+        (None, {"fields": ("phone_number", "password")}),
         (_("Personal info"), {"fields": ("first_name", "last_name")}),
         (
             _("Permissions"),
@@ -50,7 +46,7 @@ class UserAdmin(SoftDeleteAdminMixin, DjangoUserAdmin):
             None,
             {
                 "classes": ("wide",),
-                "fields": ("email", "password1", "password2", "first_name", "last_name"),
+                "fields": ("phone_number", "password1", "password2", "first_name", "last_name"),
             },
         ),
     )
@@ -58,14 +54,19 @@ class UserAdmin(SoftDeleteAdminMixin, DjangoUserAdmin):
 
 @admin.register(Profile)
 class ProfileAdmin(SoftDeleteAdminMixin, admin.ModelAdmin):
-    list_display = ("id", "user", "role", "phone_number", "address")
+    list_display = ("id", "user", "role", "get_phone_number", "address")
     list_select_related = ("user",)
     autocomplete_fields = ["user"]
     list_filter = ("role", "is_deleted")
-    search_fields = ("user__email", "user__first_name", "user__last_name", "phone_number", "address")
+    search_fields = ("user__phone_number", "user__first_name", "user__last_name", "address")
     fieldsets = (
         (None, {"fields": ("user", "role")}),
-        (_("Contact info"), {"fields": ("phone_number", "address")}),
+        (_("Contact info"), {"fields": ("address",)}),
         (_("Additional info"), {"fields": ("avatar", "bio")}),
         (_("Soft delete"), {"fields": ("is_deleted", "deleted_at")}),
     )
+
+    def get_phone_number(self, obj):
+        return obj.user.phone_number
+    get_phone_number.short_description = "Phone number"
+    get_phone_number.admin_order_field = "user__phone_number"
