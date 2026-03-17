@@ -12,6 +12,8 @@ urlpatterns = [
     path('shops/<int:shop_id>/ingredients/', IngredientView.as_view(), name='ingredients-list-create'),
     path('shops/<int:shop_id>/ingredients/<int:ingredient_id>/', IngredientView.as_view(), name='ingredients-detail'),
 
-    path('production-batches/', ProductionBatchView.as_view(), name='production-batches'),
+# Production Batches
+    path('shops/<int:shop_id>/production-batches/', ProductionBatchView.as_view(), name='production-batches'),
+    path('shops/<int:shop_id>/production-batches/<int:production_batch_id>/', ProductionBatchView.as_view(), name='production-batch-detail'),
     
 ]

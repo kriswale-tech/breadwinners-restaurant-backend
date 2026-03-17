@@ -90,18 +90,35 @@ class ProductionBatchIngredientSerializer(serializers.ModelSerializer):
         fields = ['ingredient', 'quantity_used']
 
 
+# Serializer for reading production batch details
 class ProductionBatchReadSerializer(serializers.ModelSerializer):
     ingredients_used = ProductionBatchIngredientSerializer(many=True)
     produced_by_name = serializers.SerializerMethodField()
+    product_name = serializers.CharField(source='product.name', read_only=True)
     
     class Meta:
         model = ProductionBatch
-        fields = ['shop', 'product', 'quantity_produced', 'produced_by', 'produced_by_name', 'ingredients_used']
+        fields = ['shop', 'product', 'product_name', 'quantity_produced', 'produced_by', 'produced_by_name', 'ingredients_used', 'created_at']
     
     def get_produced_by_name(self, obj):
         if obj.produced_by:
             return obj.produced_by.get_full_name() or obj.produced_by.phone_number
         return None
+
+
+# Serializer for listing production batches
+class ProductionBatchListSerializer(serializers.ModelSerializer):
+    produced_by_name = serializers.SerializerMethodField()
+    product_name = serializers.CharField(source='product.name', read_only=True)
+
+    def get_produced_by_name(self, obj):
+        if obj.produced_by:
+            return obj.produced_by.get_full_name() or obj.produced_by.phone_number
+        return None
+
+    class Meta:
+        model = ProductionBatch
+        fields = ['id', 'product_name', 'quantity_produced', 'produced_by_name', 'created_at']
 
 
 
@@ -117,22 +134,35 @@ class ProductionBatchIngredientWriteSerializer(serializers.ModelSerializer):
 
 class ProductionBatchWriteSerializer(serializers.ModelSerializer):
     ingredients = ProductionBatchIngredientWriteSerializer(many=True, source='ingredients_used')
+    shop_id = serializers.IntegerField(required=False, source='shop.id')
 
     class Meta:
         model = ProductionBatch
-        fields = ['shop', 'product', 'quantity_produced', 'produced_by', 'ingredients']
+        fields = ['shop_id', 'product', 'quantity_produced', 'produced_by', 'ingredients']
         extra_kwargs = {
             'produced_by': {'read_only': True},
         }
+
+    def validate_shop_id(self, value):
+        if not value:
+            raise serializers.ValidationError("Shop is required")
+        return value
 
     def create(self, validated_data):
         with transaction.atomic():
             ingredients_used = validated_data.pop('ingredients_used', [])
             user = self.context['request'].user
             validated_data['produced_by'] = user
+            shop_id = validated_data.pop('shop', None)['id']
+
+            # get shop
+            try:
+                shop = Shop.objects.get(id=shop_id)
+            except Shop.DoesNotExist:
+                raise serializers.ValidationError("Shop does not exist")
 
             # create production batch
-            production_batch = ProductionBatch.objects.create(**validated_data)
+            production_batch = ProductionBatch.objects.create(shop=shop, **validated_data)
             # create production batch ingredients
             for ingredient_data in ingredients_used:
                

@@ -2,11 +2,12 @@ from django.shortcuts import get_object_or_404, render
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
 from .serializers import IngredientSerializer
-from .models import Ingredient, ProductionBatch
+from .models import Ingredient, ProductionBatch, ProductionBatchIngredient
 from rest_framework.views import APIView
-from .serializers import ProductionBatchWriteSerializer, ProductionBatchReadSerializer
+from .serializers import ProductionBatchWriteSerializer, ProductionBatchReadSerializer, ProductionBatchListSerializer
 from rest_framework.response import Response
 from rest_framework import status
+from django.db.models import Prefetch
 from permissions.shop_permissions import IsShopMember
 from rest_framework.exceptions import ValidationError
 # Create your views here.
@@ -55,22 +56,48 @@ class IngredientView(APIView):
         ingredient = get_object_or_404(self.get_queryset(), pk=ingredient_id)
         ingredient.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
     
 class ProductionBatchView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsShopMember]
 
-    def get(self, request):
-        production_batches = ProductionBatch.objects.all()
-        serializer = ProductionBatchReadSerializer(production_batches, many=True)
+    def get_queryset(self):
+        shop_id = self.kwargs.get("shop_id")
+
+        if not shop_id:
+            raise ValidationError({"detail": "Shop ID is required"})
+
+        return (
+        ProductionBatch.objects
+        .filter(shop_id=shop_id)
+        .select_related(
+            "shop",
+            "product",
+            "produced_by"
+        )
+        .prefetch_related(
+            Prefetch(
+                "ingredients_used",
+                queryset=ProductionBatchIngredient.objects.select_related("ingredient")
+            )
+        )
+        .order_by("-created_at")
+    )
+
+    def get(self, request, shop_id, production_batch_id=None):
+        if not production_batch_id:
+            production_batches = self.get_queryset()
+            serializer = ProductionBatchListSerializer(production_batches, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        
+        production_batch = get_object_or_404(self.get_queryset(), pk=production_batch_id)
+        serializer = ProductionBatchReadSerializer(production_batch)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    def post(self, request):
-        serializer = ProductionBatchWriteSerializer(data=request.data, context={'request': request})
-        if serializer.is_valid():
-            serializer.save()
-            response_data = {
-                'message': 'Production batch created successfully',
-                'production_batch': ProductionBatchReadSerializer(serializer.instance).data
-            }
-            return Response(response_data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    def post(self, request, shop_id):
+        data = request.data.copy()
+        data['shop_id'] = shop_id
+        serializer = ProductionBatchWriteSerializer(data=data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)

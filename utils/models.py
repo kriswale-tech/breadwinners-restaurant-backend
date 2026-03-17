@@ -38,6 +38,7 @@ class SoftDeleteModel(models.Model):
 
         self.save(update_fields=update_fields)
 
+    #  Hard delete: permanently remove the row from the DB.
     def hard_delete(self):
         super(SoftDeleteModel, self).delete()
 
