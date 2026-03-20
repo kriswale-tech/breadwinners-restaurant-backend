@@ -13,7 +13,7 @@ def custom_exception_handler(exc, context):
     if response.status_code == 400:
         return Response({
             "success": False,
-            "message": "Validation failed",
+            "message": f"Validation failed: {get_first_error_type(response.data)}",
             "detail": get_first_error(response.data),
             "errors": response.data
         }, status=400)
@@ -33,3 +33,14 @@ def get_first_error(errors):
         return str(errors[0])
 
     return str(errors)
+
+
+def get_first_error_type(errors):
+    """
+    Return the first error key (field name) from the errors dict.
+    E.g. {"address_latitude": [...], "address_longitude": [...]} -> "address_latitude"
+    """
+    if isinstance(errors, dict):
+        for key in errors:
+            return key
+    return None
