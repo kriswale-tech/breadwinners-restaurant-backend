@@ -1,7 +1,7 @@
 from django.contrib import admin
 from utils.admin import TimestampedAdminMixin
 
-from .models import Order, OrderItem
+from .models import Order, OrderItem, PendingPayment
 
 
 class OrderItemInline(admin.TabularInline):
@@ -26,3 +26,12 @@ class OrderItemAdmin(TimestampedAdminMixin, admin.ModelAdmin):
     list_select_related = ("order", "product", "order__shop")
     autocomplete_fields = ["order", "product"]
     search_fields = ("order__customer_name", "order__shop__name", "product__name")
+
+
+@admin.register(PendingPayment)
+class PendingPaymentAdmin(TimestampedAdminMixin, admin.ModelAdmin):
+    list_display = ("id", "reference", "amount", "email", "status", "shop", "created_at", "updated_at")
+    list_select_related = ("shop",)
+    autocomplete_fields = ["shop"]
+    search_fields = ("reference", "email", "shop__name")
+    list_filter = ("status", "created_at", "updated_at")

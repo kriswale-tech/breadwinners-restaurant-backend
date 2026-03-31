@@ -1,259 +1,156 @@
-from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
-from rest_framework.permissions import AllowAny, IsAuthenticated, IsAuthenticatedOrReadOnly
-from .models import Product, ProductCategory, Package, PackageItem
-from .serializers import ProductSerializer, ProductCategorySerializer, ProductCategoryDetailSerializer, PackageSerializer
-from rest_framework.viewsets import ModelViewSet
-from permissions.shop_permissions import IsShopMember
-from rest_framework.exceptions import ValidationError
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from django.shortcuts import get_object_or_404
-from django.db.models import Prefetch
 import json
 
+from django.db.models import Prefetch
+from rest_framework import status
+from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework.viewsets import ModelViewSet
+from django.db import transaction
+from .models import Package, PackageItem, Product, ProductCategory
+from .serializers import (
+    PackageSerializer,
+    ProductCategoryDetailSerializer,
+    ProductCategorySerializer,
+    ProductSerializer,
+)
 
-# handles all product routes for a specific shop, including listing, creating, updating, and deleting products
-class ShopProductsView(APIView):
+
+# def _parse_package_items_payload(data):
+#     """Parse `items` from multipart form (JSON string) or leave list as-is."""
+#     if hasattr(data, "dict"):
+#         data = data.dict()
+#     items = data.get("items")
+#     if items is not None:
+#         if isinstance(items, str):
+#             try:
+#                 items = json.loads(items)
+#             except json.JSONDecodeError:
+#                 raise ValidationError({"items": "Invalid JSON for items."})
+#         if not isinstance(items, list):
+#             raise ValidationError({"items": "Items must be a list."})
+#         data["items"] = items
+#     return data
+
+def _parse_package_items_payload(data):
+    """Parse `items` from multipart form (JSON string) or leave list as-is."""
+    # Normalize to a plain dict; QueryDict cannot safely hold nested list/dict values.
+    if hasattr(data, "keys") and hasattr(data, "get"):
+        normalized = {key: data.get(key) for key in data.keys()}
+    else:
+        normalized = dict(data)
+
+    items = normalized.get("items")
+
+    if items is None:
+        return normalized
+
+    # Handle string input (multipart/form-data)
+    if isinstance(items, str):
+        if not items.strip():
+            items = []
+        else:
+            try:
+                items = json.loads(items)
+            except json.JSONDecodeError:
+                raise ValidationError({"items": "Invalid JSON for items."})
+
+    # Ensure it's a list
+    if not isinstance(items, list):
+        raise ValidationError({"items": "Items must be a list."})
+
+    # Ensure each item is a dict
+    if not all(isinstance(item, dict) for item in items):
+        raise ValidationError({"items": "Each item must be an object."})
+
+    normalized["items"] = items
+    return normalized
+
+
+class ProductViewSet(ModelViewSet):
+    queryset = Product.objects.select_related("category").all()
     serializer_class = ProductSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
 
-    def get_queryset(self):
-        shop_id = self.kwargs["shop_id"]
-        if not shop_id:
-            raise ValidationError({"detail": "Shop ID is required"})
-        return Product.objects.filter(shop_id=shop_id)
-
     def get_permissions(self):
-        if not self.request.user or not self.request.user.is_authenticated:
+        if self.request.method in ("GET", "HEAD", "OPTIONS"):
             return [IsAuthenticatedOrReadOnly()]
-        return [IsAuthenticated(), IsShopMember()]
-
-    def get(self, request, shop_id, product_id=None):
-        queryset = self.get_queryset()
-        if product_id is not None:
-            product = get_object_or_404(queryset, pk=product_id)
-            serializer = self.serializer_class(product, context={"request": request})
-            return Response(serializer.data, status=status.HTTP_200_OK)
-
-        serializer = self.serializer_class(queryset, many=True, context={"request": request})
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    def post(self, request, shop_id):
-        data = request.data.copy()
-        data["shop_id"] = shop_id
-        serializer = self.serializer_class(data=data, context={"request": request})
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-    def put(self, request, shop_id, product_id):
-        product = get_object_or_404(self.get_queryset(), pk=product_id)
-        data = request.data.copy()
-        data["shop_id"] = shop_id
-        serializer = self.serializer_class(product, data=data, context={"request": request})
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    def delete(self, request, shop_id, product_id):
-        product = get_object_or_404(self.get_queryset(), pk=product_id)
-        product.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        return [IsAuthenticated()]
 
 
-# for viewing all products regardless of shop
-class ProductView(ModelViewSet):
-    queryset = Product.objects.all()
-    serializer_class = ProductSerializer
+class ProductCategoryViewSet(ModelViewSet):
+    queryset = ProductCategory.objects.all()
     permission_classes = [IsAuthenticatedOrReadOnly]
-
-
-class ShopProductCategoriesView(APIView):
-    serializer_class = ProductCategorySerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
-
-    def get_queryset(self):
-        shop_id = self.kwargs["shop_id"]
-        if not shop_id:
-            raise ValidationError({"detail": "Shop ID is required"})
-        return ProductCategory.objects.filter(shop_id=shop_id)
-
-    def get_permissions(self):
-        if not self.request.user or not self.request.user.is_authenticated:
-            return [IsAuthenticatedOrReadOnly()]
-        return [IsAuthenticated(), IsShopMember()]
-
-    def get(self, request, shop_id, product_category_id=None):
-        queryset = self.get_queryset()
-        if product_category_id is not None:
-            category = get_object_or_404(queryset, pk=product_category_id)
-            serializer = ProductCategoryDetailSerializer(category, context={"request": request})
-            return Response(serializer.data, status=status.HTTP_200_OK)
-
-        serializer = self.serializer_class(queryset, many=True, context={"request": request})
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    def post(self, request, shop_id):
-        data = request.data.copy()
-        data["shop_id"] = shop_id
-        serializer = self.serializer_class(data=data, context={"request": request})
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-    def put(self, request, shop_id, product_category_id):
-        category = get_object_or_404(self.get_queryset(), pk=product_category_id)
-        data = request.data.copy()
-        data["shop_id"] = shop_id
-        serializer = self.serializer_class(category, data=data, context={"request": request})
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    def delete(self, request, shop_id, product_category_id):
-        category = get_object_or_404(self.get_queryset(), pk=product_category_id)
-        category.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-
-class ProductCategoryView(ListCreateAPIView):
-    serializer_class = ProductCategorySerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
-
-    def get_queryset(self):
-        return ProductCategory.objects.all()
-
-class ProductCategoryDetailView(RetrieveUpdateDestroyAPIView):
-    serializer_class = ProductCategoryDetailSerializer
 
     def get_serializer_class(self):
-        if self.request.method in ['PUT', 'PATCH']:
+        if self.action == "retrieve":
+            return ProductCategoryDetailSerializer
+        if self.action in ("update", "partial_update"):
             return ProductCategorySerializer
-        return ProductCategoryDetailSerializer
-
-    def get_queryset(self):
-        return ProductCategory.objects.all()
+        return ProductCategorySerializer
 
     def get_permissions(self):
-        if not self.request.user or not self.request.user.is_authenticated:
+        if self.request.method in ("GET", "HEAD", "OPTIONS"):
             return [IsAuthenticatedOrReadOnly()]
-        return [IsAuthenticated(), IsShopMember()]
+        return [IsAuthenticated()]
 
 
-# handles all package routes for a specific shop, including listing, creating, updating, and deleting packages
-class ShopPackageView(APIView):
+class PackageViewSet(ModelViewSet):
+    queryset = (
+        Package.objects.all()
+        .prefetch_related(
+            Prefetch(
+                "items",
+                queryset=PackageItem.objects.select_related("product"),
+            )
+        )
+    )
     serializer_class = PackageSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
 
-    def get_queryset(self, shop_id):
-        if not shop_id:
-            raise ValidationError({"detail": "Shop ID is required"})
-        return (
-            Package.objects
-            .filter(shop_id=shop_id)
-            .select_related("shop")
-            .prefetch_related(
-                Prefetch(
-                    "items",
-                    queryset=PackageItem.objects.select_related("product")
-                )
-            )
-        )
-
     def get_permissions(self):
-        if not self.request.user or not self.request.user.is_authenticated:
+        if self.request.method in ("GET", "HEAD", "OPTIONS"):
             return [IsAuthenticatedOrReadOnly()]
-        return [IsAuthenticated(), IsShopMember()]
+        return [IsAuthenticated()]
 
-    def _parse_items(self, data):
-        """
-        Parse items from form-data (string) or leave as-is if already a list (JSON).
-        Works safely with QueryDict.
-        """
+    def create(self, request, *args, **kwargs):
+        data = _parse_package_items_payload(request.data.copy())
+        
+        with transaction.atomic():
+            serializer = self.get_serializer(data=data)
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+            # Re-serialize the saved instance so nested items are returned from DB state.
+            response_serializer = self.get_serializer(serializer.instance)
+        headers = self.get_success_headers(response_serializer.data)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
-        # Convert QueryDict to normal dict to avoid nested list issues
-        if hasattr(data, "dict"):
-            data = data.dict()
-
-        items = data.get("items")
-
-        if items is not None:
-            if isinstance(items, str):
-                try:
-                    items = json.loads(items)
-                except json.JSONDecodeError:
-                    raise ValidationError({"items": "Invalid JSON for items."})
-
-            if not isinstance(items, list):
-                raise ValidationError({"items": "Items must be a list."})
-
-            data["items"] = items
-
-        return data
-
-    def get(self, request, shop_id, package_id=None):
-        queryset = self.get_queryset(shop_id)
-        if package_id is not None:
-            package = get_object_or_404(queryset, pk=package_id)
-            serializer = self.serializer_class(
-                package,
-                context={"request": request}
-            )
-            return Response(serializer.data, status=status.HTTP_200_OK)
-
-        serializer = self.serializer_class(
-            queryset,
-            many=True,
-            context={"request": request}
-        )
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    def post(self, request, shop_id):
-        data = request.data.copy()
-        data["shop_id"] = shop_id
-        data = self._parse_items(data)
-        serializer = self.serializer_class(
-            data=data,
-            context={"request": request}
-        )
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-    def put(self, request, shop_id, package_id):
-        package = get_object_or_404(self.get_queryset(shop_id), pk=package_id)
-        data = request.data.copy()
-        data["shop_id"] = shop_id
-        data = self._parse_items(data)
-
-        serializer = self.serializer_class(
-            package,
-            data=data,
-            partial=True,
-            context={"request": request}
-        )
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    def delete(self, request, shop_id, package_id):
-        package = get_object_or_404(self.get_queryset(shop_id), pk=package_id)
-        package.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop("partial", False)
+        instance = self.get_object()
+        data = _parse_package_items_payload(request.data.copy())
+        
+        with transaction.atomic():
+            serializer = self.get_serializer(instance, data=data, partial=partial)
+            serializer.is_valid(raise_exception=True)
+            self.perform_update(serializer)
+            # Mirror UpdateModelMixin behavior: clear stale prefetched relation cache.
+            if getattr(instance, "_prefetched_objects_cache", None):
+                instance._prefetched_objects_cache = {}
+            response_serializer = self.get_serializer(instance)
+        return Response(response_serializer.data)
 
 
 class ProductStatisticsView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get(self, request, shop_id):
-        total_products = Product.objects.filter(shop_id=shop_id).count()
-        total_categories = ProductCategory.objects.filter(shop_id=shop_id).count()
-        total_packages = Package.objects.filter(shop_id=shop_id).count()
-        return Response({
-            "products": total_products,
-            "categories": total_categories,
-            "packages": total_packages
-        }, status=status.HTTP_200_OK)
-
-
+    def get(self, request, *args, **kwargs):
+        return Response(
+            {
+                "products": Product.objects.count(),
+                "categories": ProductCategory.objects.count(),
+                "packages": Package.objects.count(),
+            },
+            status=status.HTTP_200_OK,
+        )

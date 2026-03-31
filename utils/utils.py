@@ -18,3 +18,4 @@ def send_setup_link(url: str, phone_number: str | None = None):
     except Exception as e:
         print(f"Error sending setup link: {e}")
 
+

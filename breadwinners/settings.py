@@ -9,6 +9,10 @@ https://docs.djangoproject.com/en/6.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from pathlib import Path
 
@@ -25,12 +29,13 @@ SECRET_KEY = 'django-insecure-#-x##v#ej)v1@rhbpr=*^4!_307pbk-nuz2y8oup^rs$3vq=)=
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'tumular-aimee-supplementally.ngrok-free.dev']
 
 # CSRF settings
 CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:3002", "http://127.0.0.1:3002"
+    "http://localhost:3002", "http://127.0.0.1:3002", "https://tumular-aimee-supplementally.ngrok-free.dev"
 ]
+
 
 
 # Application definition
@@ -70,7 +75,7 @@ MIDDLEWARE = [
 
 # CORS settings
 CORS_ALLOWED_ORIGINS = [
-    'http://localhost:3002',
+    'http://localhost:3002', 'https://tumular-aimee-supplementally.ngrok-free.dev',
     'http://localhost:3000',
 ]
 CORS_ALLOW_CREDENTIALS = True
@@ -168,3 +173,10 @@ FRONTEND_SETUP_URL = FRONTEND_BASE_URL + '/admin/auth/setup'
 
 # this controls the timeout for the password reset token
 PASSWORD_RESET_TIMEOUT = 7 * 24 * 60 * 60  # 7 days
+
+# Paystack settings
+PAYSTACK_SECRET_KEY = os.getenv("PAYSTACK_SECRET_KEY")
+PAYSTACK_PUBLIC_KEY = os.getenv("PAYSTACK_PUBLIC_KEY")
+PAYSTACK_VERIFY_URL = os.getenv("PAYSTACK_VERIFY_URL")
+PAYSTACK_INITIALIZE_URL = os.getenv("PAYSTACK_INITIALIZE_URL")
+PAYSTACK_WEBHOOK_URL = os.getenv("PAYSTACK_WEBHOOK_URL")

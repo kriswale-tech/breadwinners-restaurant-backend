@@ -1,7 +1,7 @@
 from django.contrib import admin
 from utils.admin import TimestampedAdminMixin
 
-from .models import Product, ProductCategory, Package, PackageItem
+from .models import Package, PackageItem, Product, ProductCategory
 
 
 @admin.register(ProductCategory)
@@ -12,23 +12,23 @@ class ProductCategoryAdmin(TimestampedAdminMixin, admin.ModelAdmin):
 
 @admin.register(Product)
 class ProductAdmin(TimestampedAdminMixin, admin.ModelAdmin):
-    list_display = ("id", "name", "shop", "category", "price")
-    list_select_related = ("shop", "category")
-    autocomplete_fields = ["shop", "category"]
-    search_fields = ("name", "description", "shop__name", "category__name")
+    list_display = ("id", "name", "category", "price")
+    list_select_related = ("category",)
+    autocomplete_fields = ["category"]
+    search_fields = ("name", "description", "category__name")
+
 
 class PackageItemInline(admin.TabularInline):
     model = PackageItem
     extra = 0
     autocomplete_fields = ["product"]
-    
+
+
 @admin.register(Package)
 class PackageAdmin(TimestampedAdminMixin, admin.ModelAdmin):
-    list_display = ("id", "name", "shop", "price", "is_active")
-    list_select_related = ("shop",)
-    list_filter = ("is_active", "shop")
-    autocomplete_fields = ["shop"]
-    search_fields = ("name", "description", "shop__name")
+    list_display = ("id", "name", "price", "is_active")
+    list_filter = ("is_active",)
+    search_fields = ("name", "description")
     inlines = [PackageItemInline]
 
 
