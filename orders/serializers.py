@@ -196,3 +196,22 @@ class OrderStatusUpdateSerializer(serializers.ModelSerializer):
         model = Order
         fields = ['id', 'shop', 'customer_name', 'customer_phone', 'status', 'total_amount', 'email', 'delivery_method', 'delivery_address', 'address_latitude', 'address_longitude', 'delivery_notes', 'order_number', 'created_at', 'updated_at', 'items', 'payment_status']
         read_only_fields = ['id', 'shop', 'customer_name', 'customer_phone', 'total_amount', 'email', 'delivery_method', 'delivery_address', 'address_latitude', 'address_longitude', 'delivery_notes', 'order_number', 'created_at', 'updated_at', 'items', 'payment_status']
+
+
+class TrackOrderSerializer(serializers.Serializer):
+    order_number = serializers.CharField(required=True)
+    customer_phone = serializers.CharField(required=True)
+
+    def validate_customer_phone(self, value):
+        if not re.match(r'^0\d{9}$', value):
+            raise serializers.ValidationError("Invalid phone number. Must be 10 digits and of format 0XXXXXXXXX")
+        return value
+
+    def validate(self, attrs):
+        order_number = attrs.get("order_number")
+        customer_phone = attrs.get("customer_phone")
+        if not order_number:
+            raise serializers.ValidationError("Order number is required")
+        if not customer_phone:
+            raise serializers.ValidationError("Phone number is required")
+        return attrs

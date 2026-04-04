@@ -6,6 +6,7 @@ from orders.views import (
     InitializePaymentView,
     VerifyPaymentView,
     PaystackWebhookView,
+    TrackOrderView,
 )
 app_name = 'orders'
 
@@ -24,4 +25,7 @@ urlpatterns = [
 
     # paystack webhook (Paystack sends POST requests here)
     path('paystack/webhook/', PaystackWebhookView.as_view(), name='paystack-webhook'),
+
+    # track order
+    path('orders/track/', TrackOrderView.as_view(), name='track-order'),
 ]

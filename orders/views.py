@@ -3,7 +3,7 @@ from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from orders.models import Order, PendingPayment
-from orders.serializers import OrderListCreateSerializer, OrderDetailSerializer, OrderStatusUpdateSerializer
+from orders.serializers import OrderListCreateSerializer, OrderDetailSerializer, OrderStatusUpdateSerializer, TrackOrderSerializer
 from permissions.shop_permissions import IsShopMember
 from django.db.models import Prefetch
 from orders.models import OrderItem
@@ -103,6 +103,14 @@ class OrderView(ListCreateAPIView):
         if self.request.method == "POST":
             return [AllowAny()]
         return [IsAuthenticated(), IsShopMember()]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        order = serializer.instance
+        headers = self.get_success_headers(serializer.data)
+        return Response(OrderDetailSerializer(order, context={"request": request}).data, status=status.HTTP_201_CREATED, headers=headers)
 
 
 class OrderDetailView(RetrieveUpdateDestroyAPIView):
@@ -687,3 +695,25 @@ class PaystackWebhookView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class TrackOrderView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, *args, **kwargs):
+        customer_phone = request.query_params.get("customer_phone")
+        order_number = request.query_params.get("order_number")
+        serializer = TrackOrderSerializer(data={"order_number": order_number, "customer_phone": customer_phone})
+        serializer.is_valid(raise_exception=True)
+        try:
+            order = Order.objects.get(order_number=serializer.validated_data.get("order_number"), customer_phone=serializer.validated_data.get("customer_phone"))
+        except Order.DoesNotExist:
+            return Response(
+                {"status": "failed", "message": "Order not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        return Response({
+            "status": "success",
+            "message": "Order found",
+            "order": OrderDetailSerializer(order).data,
+        }, status=status.HTTP_200_OK)
